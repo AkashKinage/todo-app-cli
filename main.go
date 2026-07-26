@@ -5,10 +5,25 @@ import (
 	"os"
 )
 
+var globalTaskId = 0
+
 type Task struct {
 	ID int
 	Name string
 	Completed bool
+}
+
+var tasks []Task
+
+func addTask(name string) {
+	task := Task{
+		ID: globalTaskId + 1,
+		Name: name,
+		Completed: false,
+	}
+	tasks = append(tasks, task)
+	fmt.Printf("Task added: %+v\n", task)
+	globalTaskId++
 }
 
 func main() {
@@ -21,7 +36,12 @@ func main() {
 
 	switch choice {
 	case "add":
-		fmt.Println("Adding task...")
+		if len(os.Args) < 3 {
+			fmt.Println("Please provide a task name")
+			return
+		}
+
+		addTask(os.Args[2])
 	case "list":
 		fmt.Println("Listing tasks...")
 	case "delete":
@@ -29,12 +49,4 @@ func main() {
 	default:
 		fmt.Println("Invalid choice")
 	}
-
-	task := Task{
-		ID: 1,
-		Name: "Task 1",
-		Completed: false,
-	}
-
-	fmt.Printf("Task: %+v\n", task)
 }
