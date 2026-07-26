@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 type Task struct {
@@ -21,13 +22,7 @@ func getLastTaskId() int {
 	return tasks[len(tasks)-1].ID
 }
 
-func addTask(name string) {
-	task := Task{
-		ID: getLastTaskId() + 1,
-		Name: name,
-		Completed: false,
-	}
-	tasks = append(tasks, task)
+func writeTasksToFile() {
 	tasksJSON, err := json.Marshal(tasks)
 	if err != nil {
 		fmt.Println("Error marshaling tasks:", err)
@@ -38,6 +33,16 @@ func addTask(name string) {
 		fmt.Println("Error writing tasks file:", err)
 		return
 	}
+}
+
+func addTask(name string) {
+	task := Task{
+		ID: getLastTaskId() + 1,
+		Name: name,
+		Completed: false,
+	}
+	tasks = append(tasks, task)
+	writeTasksToFile()
 	fmt.Printf("Task added: %+v\n", task)
 }
 
@@ -55,9 +60,31 @@ func listTasks() {
 	}
 }
 
+func completeTask(idStr string) {
+	var id int
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		fmt.Println("Invalid task ID", err)
+		return
+	}
+	for i, task := range tasks {
+		if task.ID == id {
+			tasks[i].Completed = true
+			writeTasksToFile()
+			// NOTE: `task` from `range` is a copy, not a reference to tasks[i].
+			// Mutating tasks[i] doesn't update `task` — print/use tasks[i] instead
+			// if you need the updated value after modification.
+			// earlier, I mistakenly printed `task` instead of `tasks[i]`, which is a copy and doesn't reflect the updated state.
+			fmt.Printf("Task completed: %+v\n", tasks[i])
+			return
+		}
+	}
+	fmt.Println("ID is invalid.")
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo delete")
+		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo complete\ntodo delete")
 		return
 	}
 
@@ -88,6 +115,13 @@ func main() {
 		addTask(os.Args[2])
 	case "list":
 		listTasks()
+	case "complete":
+		if len(os.Args) < 3 {
+			fmt.Println("Please provide a task ID to complete")
+			return
+		}
+
+		completeTask(os.Args[2])
 	case "delete":
 		fmt.Println("Deleting task...")
 	default:
