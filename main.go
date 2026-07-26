@@ -41,6 +41,20 @@ func addTask(name string) {
 	fmt.Printf("Task added: %+v\n", task)
 }
 
+func listTasks() {
+	if len(tasks) == 0 {
+		fmt.Println("No tasks found.")
+		return
+	}
+	for _, task := range tasks {
+		status := "❌"
+		if task.Completed {
+			status = "✅"
+		}
+		fmt.Printf("%d. %s %s\n", task.ID, status, task.Name)
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo delete")
@@ -73,7 +87,7 @@ func main() {
 
 		addTask(os.Args[2])
 	case "list":
-		fmt.Println("Listing tasks...")
+		listTasks()
 	case "delete":
 		fmt.Println("Deleting task...")
 	default:
