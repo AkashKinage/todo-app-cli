@@ -5,6 +5,12 @@ import (
 	"os"
 )
 
+type Task struct {
+	ID int
+	Name string
+	Completed bool
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo delete")
@@ -23,4 +29,12 @@ func main() {
 	default:
 		fmt.Println("Invalid choice")
 	}
+
+	task := Task{
+		ID: 1,
+		Name: "Task 1",
+		Completed: false,
+	}
+
+	fmt.Printf("Task: %+v\n", task)
 }
