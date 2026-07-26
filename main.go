@@ -28,8 +28,12 @@ func addTask(name string) {
 		Completed: false,
 	}
 	tasks = append(tasks, task)
-	tasksJSON, _ := json.Marshal(tasks)
-	err := os.WriteFile("tasks.json", tasksJSON, 0644)
+	tasksJSON, err := json.Marshal(tasks)
+	if err != nil {
+		fmt.Println("Error marshaling tasks:", err)
+		return
+	}
+	err = os.WriteFile("tasks.json", tasksJSON, 0644)
 	if err != nil {
 		fmt.Println("Error writing tasks file:", err)
 		return
