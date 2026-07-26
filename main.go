@@ -82,6 +82,24 @@ func completeTask(idStr string) {
 	fmt.Println("ID is invalid.")
 }
 
+func deleteTask(idStr string) {
+	var id int
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		fmt.Println("Invalid task ID", err)
+		return
+	}
+	for i, task := range tasks {
+		if task.ID == id {
+			tasks = append(tasks[:i], tasks[i+1:]...)
+			writeTasksToFile()
+			fmt.Printf("Task deleted: %+v\n", task)
+			return
+		}
+	}
+	fmt.Println("ID is invalid.")
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo complete\ntodo delete")
@@ -123,7 +141,12 @@ func main() {
 
 		completeTask(os.Args[2])
 	case "delete":
-		fmt.Println("Deleting task...")
+		if len(os.Args) < 3 {
+			fmt.Println("Please provide a task ID to delete")
+			return
+		}
+
+		deleteTask(os.Args[2])
 	default:
 		fmt.Println("Invalid choice")
 	}
