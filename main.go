@@ -2,47 +2,85 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
+const taskFile = "tasks.json"
+
 type Task struct {
-	ID int `json:"id"`
-	Name string `json:"name"`
-	Completed bool `json:"completed"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Completed bool   `json:"completed"`
 }
 
 var tasks []Task
 
-func getLastTaskId() int {
+func getLastTaskID() int {
 	if len(tasks) == 0 {
 		return 0
 	}
 	return tasks[len(tasks)-1].ID
 }
 
-func writeTasksToFile() {
-	tasksJSON, err := json.Marshal(tasks)
+func writeTasksToFile() error {
+	tasksJSON, err := json.MarshalIndent(tasks, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling tasks:", err)
-		return
+		return err
 	}
-	err = os.WriteFile("tasks.json", tasksJSON, 0644)
+	err = os.WriteFile(taskFile, tasksJSON, 0644)
 	if err != nil {
-		fmt.Println("Error writing tasks file:", err)
-		return
+		return err
 	}
+	return nil
+}
+
+func parseTaskID(idStr string) (int, error) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func findTaskByID(id int) (*Task, error) {
+	// NOTE: The iteration variable `task` in a `range` loop is a copy of the slice element, not the actual element stored in `tasks`.
+	// Any changes made to `tasks[i]` are not reflected in `task`, so printing `task` after updating `tasks[i]` will show the old value.
+	// If you need to modify or return the original task, work with `tasks[i]` (or `&tasks[i]` to get a pointer) instead of the `task` variable.
+
+	for i := range tasks {
+		if tasks[i].ID == id {
+			return &tasks[i], nil
+		}
+	}
+
+	return nil, errors.New("no task found")
+}
+
+func findTaskIndexByID(id int) (int, error) {
+	for ind, task := range tasks {
+		if task.ID == id {
+			return ind, nil
+		}
+	}
+
+	return 0, errors.New("no task found")
 }
 
 func addTask(name string) {
 	task := Task{
-		ID: getLastTaskId() + 1,
-		Name: name,
+		ID:        getLastTaskID() + 1,
+		Name:      name,
 		Completed: false,
 	}
 	tasks = append(tasks, task)
-	writeTasksToFile()
+	if err := writeTasksToFile(); err != nil {
+		fmt.Println("Error writing tasks to file:", err)
+		return
+	}
 	fmt.Printf("Task added: %+v\n", task)
 }
 
@@ -61,68 +99,74 @@ func listTasks() {
 }
 
 func completeTask(idStr string) {
-	var id int
-	id, err := strconv.Atoi(idStr)
+	id, err := parseTaskID(idStr)
 	if err != nil {
 		fmt.Println("Invalid task ID", err)
 		return
 	}
-	for i, task := range tasks {
-		if task.ID == id {
-			tasks[i].Completed = true
-			writeTasksToFile()
-			// NOTE: `task` from `range` is a copy, not a reference to tasks[i].
-			// Mutating tasks[i] doesn't update `task` — print/use tasks[i] instead
-			// if you need the updated value after modification.
-			// earlier, I mistakenly printed `task` instead of `tasks[i]`, which is a copy and doesn't reflect the updated state.
-			fmt.Printf("Task completed: %+v\n", tasks[i])
-			return
-		}
+
+	task, err := findTaskByID(id)
+	if err != nil {
+		fmt.Println("Task not found:", err)
+		return
 	}
-	fmt.Println("ID is invalid.")
+
+	task.Completed = true
+	if err := writeTasksToFile(); err != nil {
+		fmt.Println("Error writing tasks to file:", err)
+		return
+	}
+
+	fmt.Println("Task completed:", *task)
 }
 
 func deleteTask(idStr string) {
-	var id int
-	id, err := strconv.Atoi(idStr)
+	id, err := parseTaskID(idStr)
 	if err != nil {
 		fmt.Println("Invalid task ID", err)
 		return
 	}
-	for i, task := range tasks {
-		if task.ID == id {
-			tasks = append(tasks[:i], tasks[i+1:]...)
-			writeTasksToFile()
-			fmt.Printf("Task deleted: %+v\n", task)
-			return
-		}
-	}
-	fmt.Println("ID is invalid.")
-}
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo complete\ntodo delete")
+	idx, err := findTaskIndexByID(id)
+	if err != nil {
+		fmt.Printf("Task with ID %d not found\n", id)
 		return
 	}
 
-	data, err := os.ReadFile("tasks.json")
+	deletedTask := tasks[idx]
+
+	tasks = append(tasks[:idx], tasks[idx+1:]...)
+	if err := writeTasksToFile(); err != nil {
+		fmt.Println("Error writing tasks to file:", err)
+		return
+	}
+
+	fmt.Printf("Task deleted: %+v\n", deletedTask)
+}
+
+func loadTasks() error {
+	data, err := os.ReadFile(taskFile)
 	if err == nil {
 		err = json.Unmarshal(data, &tasks)
 		if err != nil {
 			fmt.Println("Error unmarshaling tasks:", err)
-			return
+			return err
 		}
 	} else if os.IsNotExist(err) {
 		fmt.Println("Tasks file not found. Starting with an empty task list.")
-		os.WriteFile("tasks.json", []byte("[]"), 0644)
+		if err := os.WriteFile(taskFile, []byte("[]"), 0644); err != nil {
+			fmt.Println("Error creating tasks file:", err)
+			return err
+		}
 	} else {
 		fmt.Println("Error reading tasks file:", err)
-		return
+		return err
 	}
 
-	choice := os.Args[1]
+	return nil
+}
 
+func handleChoice(choice string) {
 	switch choice {
 	case "add":
 		if len(os.Args) < 3 {
@@ -130,7 +174,8 @@ func main() {
 			return
 		}
 
-		addTask(os.Args[2])
+		name := strings.Join(os.Args[2:], " ")
+		addTask(name)
 	case "list":
 		listTasks()
 	case "complete":
@@ -150,4 +195,18 @@ func main() {
 	default:
 		fmt.Println("Invalid choice")
 	}
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Print("Usage:\n\ntodo add\ntodo list\ntodo complete\ntodo delete")
+		return
+	}
+
+	if err := loadTasks(); err != nil {
+		fmt.Println("Error loading Tasks file:", err)
+		return
+	}
+
+	handleChoice(os.Args[1])
 }
